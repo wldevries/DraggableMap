@@ -1,7 +1,6 @@
 ﻿using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
-using System.Windows.Media.Imaging;
 
 namespace DraggableMap;
 
@@ -10,18 +9,24 @@ namespace DraggableMap;
 /// </summary>
 public partial class MainWindow : Window
 {
+    private const int MinZoom = 0;
+    private const int MaxZoom = 14;
+
     public static readonly DependencyProperty TopLeftProperty =
         DependencyProperty.Register("TopLeft", typeof(Point), typeof(MainWindow), new PropertyMetadata(new Point(0, 0), TopLeftChanged));
 
     public static readonly DependencyProperty ZoomLevelProperty =
-        DependencyProperty.Register("ZoomLevel", typeof(int), typeof(MainWindow), new PropertyMetadata(1));
+        DependencyProperty.Register("ZoomLevel", typeof(int), typeof(MainWindow), new PropertyMetadata(3));
 
     private bool isPanning = false;
     private Point mousePosition = new();
+    private TileFetcher TileFetcher = new();
+    private bool isUpdating = false;
 
     public MainWindow()
     {
         InitializeComponent();
+
         this.Loaded += (_, _) => this.UpdateCanvas();
         this.SizeChanged += (_, _) => this.UpdateCanvas();
 
@@ -61,23 +66,27 @@ public partial class MainWindow : Window
         }
     }
 
-    private void ZoomOut(Point center)
+    private async void ZoomOut(Point center)
     {
-        if (this.ZoomLevel > 1)
+        if (this.ZoomLevel > MinZoom && !isUpdating)
         {
+            this.isUpdating = true;
             this.ZoomLevel--;
             this.TopLeft -= center.ToVector() / 2;
-            this.UpdateCanvas();
+            this.isUpdating = false;
+            await this.UpdateCanvas();
         }
     }
 
-    private void ZoomIn(Point center)
+    private async void ZoomIn(Point center)
     {
-        if (this.ZoomLevel < 5)
+        if (this.ZoomLevel < MaxZoom && !isUpdating)
         {
+            this.isUpdating = true;
             this.ZoomLevel++;
             this.TopLeft += center.ToVector();
-            this.UpdateCanvas();
+            this.isUpdating = false;
+            await this.UpdateCanvas();
         }
     }
 
@@ -135,14 +144,24 @@ public partial class MainWindow : Window
 
     private Point BottomRight => this.TopLeft + new Vector(this.TileCanvas.ActualWidth, this.TileCanvas.ActualHeight);
 
-    private static void TopLeftChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+    private static async void TopLeftChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
     {
         var w = (MainWindow)d;
-        w.UpdateCanvas();
+        await w.UpdateCanvas();
     }
 
-    public void UpdateCanvas()
+    public async Task UpdateCanvas()
     {
+        if (this.isUpdating)
+            return;
+        this.isUpdating = true;
+
+        if (TileFetcher.Key is null)
+        {
+            string key = System.IO.File.ReadAllText("key.txt");
+            await this.TileFetcher.GetSession(key);
+        }
+
         var tiles = this.TileCanvas.Children.OfType<TileImage>().ToList();
 
         var tileCount = TileFetcher.GetWidth(this.ZoomLevel);
@@ -168,7 +187,7 @@ public partial class MainWindow : Window
                 }
                 else
                 {
-                    tile = createtile(id);
+                    tile = await createTile(id);
                     this.TileCanvas.Children.Add(tile);
                 }
                 if (tile != null)
@@ -183,17 +202,19 @@ public partial class MainWindow : Window
             this.TileCanvas.Children.Remove(tile);
         }
 
+        this.isUpdating = false;
+
         TileImage? getTile(TileId id)
         {
             return tiles.FirstOrDefault(t => t.Id is TileId i && i == id);
         }
 
-        TileImage createtile(TileId id)
+        async Task<TileImage> createTile(TileId id)
         {
             return new TileImage()
             {
                 Id = id,
-                Source = TileFetcher.GetTile(id),
+                Source = await TileFetcher.GetTileAsync(id),
             };
         }
 
