@@ -1,4 +1,5 @@
 ﻿using ReactiveUI;
+using System.Numerics;
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Media;
@@ -31,7 +32,8 @@ public class PinViewModel : ReactiveObject
 
     public void Update(
         GeoRectangle bounds,
-        Size resolution)
+        Size resolution,
+        Vector2 offset)
     {
         if (this.DTO.lng is double lng && this.DTO.lat is double lat)
         {
@@ -39,8 +41,8 @@ public class PinViewModel : ReactiveObject
             var position = GeoMath.ProjectToMap(location, bounds, resolution.Width, resolution.Height);
             Matrix t = new();
             t.Translate(
-                position.X - this.Width / 2.0,
-                position.Y - this.Height + this.Height * 0.15);
+                position.X - this.Width / 2.0 + offset.X,
+                position.Y - this.Height + this.Height * 0.15 + offset.Y);
             this.Transformation = t;
         }
     }

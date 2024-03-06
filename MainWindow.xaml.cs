@@ -170,6 +170,7 @@ public partial class MainWindow : Window
         var tiles = this.TileCanvas.Children.OfType<TileImage>().ToList();
 
         var tileCount = TileFetcher.GetWidth(this.ZoomLevel);
+        var worldSize = GeoMath.MapSize(this.ZoomLevel, TileFetcher.TileSize);
 
         var minTileX = TopLeft.X / TileFetcher.TileSize;
         minTileX = Math.Max(minTileX, 0);
@@ -229,7 +230,27 @@ public partial class MainWindow : Window
                 TileFetcher.TileSize);
 
             GeoRectangle bounds = GeoRectangle.From([tl, br])!;
-            pin.Update(bounds, new(this.TileCanvas.ActualWidth, this.TileCanvas.ActualHeight));
+            Size mapSize = new(this.TileCanvas.ActualWidth, this.TileCanvas.ActualHeight);
+            Vector offset = new();
+            if (this.TopLeft.X < 0)
+            {
+                offset.X = (float)-this.TopLeft.X;
+                mapSize.Width += this.TopLeft.X;
+            }
+            if (this.TopLeft.Y < 0)
+            {
+                offset.Y = (float)-this.TopLeft.Y;
+                mapSize.Height += this.TopLeft.Y;
+            }
+            if (this.BottomRight.X > worldSize)
+            {
+                mapSize.Width -= (this.BottomRight.X - worldSize);
+            }
+            if (this.BottomRight.Y > worldSize)
+            {
+                mapSize.Height -= (this.BottomRight.Y - worldSize);
+            }
+            pin.Update(bounds, mapSize, offset.ToVector2());
         }
 
         this.isUpdating = false;
