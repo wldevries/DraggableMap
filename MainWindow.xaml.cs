@@ -308,4 +308,14 @@ public partial class MainWindow : Window
         tiles[id] = newImage;
         return newImage;
     }
+
+    private void HandleZoomOut(object sender, RoutedEventArgs e)
+    {
+        this.ZoomOut(this.TopLeft + new Vector(this.ActualWidth / 2, this.ActualHeight / 2));
+    }
+
+    private void HandleZoomIn(object sender, RoutedEventArgs e)
+    {
+        this.ZoomIn(this.TopLeft + new Vector(this.ActualWidth / 2, this.ActualHeight / 2));
+    }
 }

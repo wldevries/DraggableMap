@@ -47,5 +47,39 @@
             </ItemsControl.ItemContainerStyle>
         </ItemsControl>
 
+        <UniformGrid
+            Margin="4"
+            HorizontalAlignment="Right"
+            VerticalAlignment="Bottom"
+            Columns="1">
+            <Button
+                Width="60"
+                Height="60"
+                Margin="4"
+                HorizontalContentAlignment="Center"
+                VerticalContentAlignment="Center"
+                Click="HandleZoomIn">
+                <Canvas Width="20" Height="20">
+                    <Path
+                        Data="M0,10 H20 M10,0 v20"
+                        Stroke="Black"
+                        StrokeThickness="4" />
+                </Canvas>
+            </Button>
+            <Button
+                Width="60"
+                Height="60"
+                Margin="4"
+                HorizontalContentAlignment="Center"
+                VerticalContentAlignment="Center"
+                Click="HandleZoomOut">
+                <Canvas Width="20" Height="20">
+                    <Path
+                        Data="M0,10 H20"
+                        Stroke="Black"
+                        StrokeThickness="4" />
+                </Canvas>
+            </Button>
+        </UniformGrid>
     </Grid>
 </Window>
