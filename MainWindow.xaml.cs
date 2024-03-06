@@ -2,6 +2,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media.Imaging;
 
 namespace DraggableMap;
 
@@ -191,7 +192,7 @@ public partial class MainWindow : Window
                 }
                 else
                 {
-                    tile = await createTile(id);
+                    tile = createTile(id);
                     this.TileCanvas.Children.Add(tile);
                 }
                 if (tile != null)
@@ -218,8 +219,14 @@ public partial class MainWindow : Window
 
         foreach (var pin in this.pins)
         {
-            var tl = GeoMath.GlobalPixelToPosition(this.TopLeft.ToVector2(), this.ZoomLevel, TileFetcher.TileSize);
-            var br = GeoMath.GlobalPixelToPosition(this.BottomRight.ToVector2(), this.ZoomLevel, TileFetcher.TileSize);
+            var tl = GeoMath.GlobalPixelToPosition(
+                this.TopLeft.ToVector2(),
+                this.ZoomLevel,
+                TileFetcher.TileSize);
+            var br = GeoMath.GlobalPixelToPosition(
+                this.BottomRight.ToVector2(),
+                this.ZoomLevel,
+                TileFetcher.TileSize);
 
             GeoRectangle bounds = GeoRectangle.From([tl, br])!;
             pin.Update(bounds, new(this.TileCanvas.ActualWidth, this.TileCanvas.ActualHeight));
@@ -232,13 +239,33 @@ public partial class MainWindow : Window
             return tiles.FirstOrDefault(t => t.Id is TileId i && i == id);
         }
 
-        async Task<TileImage> createTile(TileId id)
+        TileImage createTile(TileId id)
         {
-            return new TileImage()
+            TileImage i = new()
             {
                 Id = id,
-                Source = await TileFetcher.GetTileAsync(id),
             };
+
+            if (TileFetcher.GetTileAsync(id) is string path)
+            {
+                i.Source = LoadFile(id, path);
+            }
+            else
+            {
+                _ = Task.Run(async () =>
+                {
+                    var path = await TileFetcher.DownloadTileAsync(id);
+                    if (path != null)
+                    {
+                        this.Dispatcher.Invoke(() =>
+                        {
+                            i.Source = LoadFile(id, path);
+                        });
+                    }
+                });
+            }
+
+            return i;
         }
 
         void UpdateTile(TileImage tile)
@@ -246,5 +273,18 @@ public partial class MainWindow : Window
             Canvas.SetLeft(tile, tile.Id.X * TileFetcher.TileSize - TopLeft.X);
             Canvas.SetTop(tile, tile.Id.Y * TileFetcher.TileSize - TopLeft.Y);
         }
+    }
+
+    private readonly Dictionary<TileId, BitmapImage> tiles = [];
+
+    private BitmapImage LoadFile(TileId id, string path)
+    {
+        Uri uri = new(path);
+        BitmapImage newImage = new(uri)
+        {
+            CacheOption = BitmapCacheOption.OnLoad,
+        };
+        tiles[id] = newImage;
+        return newImage;
     }
 }

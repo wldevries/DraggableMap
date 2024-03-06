@@ -12,57 +12,34 @@ public class TileFetcher
 {
     public const int TileSize = 256;
 
-    private const string Root = @"E:\Dev\dnd\Grafelgam\svelte-typescript-app\app\public\tiles\";
-
     private const string SessionPath = "https://tile.googleapis.com/v1/createSession?key=";
     private const string MapsPath = @"https://tile.googleapis.com/v1/2dtiles";
-
-    private readonly Dictionary<TileId, BitmapImage> tiles = [];
 
     public string? Key { get; set; }
     public string? Session { get; set; }
 
-    public BitmapImage GetTile(TileId id)
-    {
-        if (tiles.TryGetValue(id, out var image))
-        {
-            return image;
-        }
-
-        string path = Path.Combine(Root, id.Z.ToString(), id.X.ToString(), id.Y.ToString() + ".png");
-        Uri uri = new(path);
-        BitmapImage newImage = new(uri)
-        {
-            CacheOption = BitmapCacheOption.OnLoad,
-        };
-        tiles[id] = newImage;
-        return newImage;
-    }
-
-    public async Task<BitmapImage> GetTileAsync(TileId id)
+    public string? GetTileAsync(TileId id)
     {
         var filePath = CachePath(id);
         if (File.Exists(filePath))
         {
-            return LoadFile(id, filePath);
+            return filePath;
         }
 
-        var reqPath = $"{MapsPath}/{id.Z}/{id.X}/{id.Y}";
-        QueryString reqQuery = QueryString.Empty
-            .Add("key", Key)
-            .Add("session", Session)
-            .Add("orientation", "0");
-        Uri reqUri = new(reqPath + reqQuery);
+        return null;
+    }
+
+    public async Task<string> DownloadTileAsync(TileId id)
+    {
+        var filePath = CachePath(id);
+        if (File.Exists(filePath))
+        {
+            return filePath;
+        }
 
         try
         {
-            using HttpClient client = new();
-            var response = await client.GetAsync(reqUri);
-            response.EnsureSuccessStatusCode();
-
-            var stream = response.Content.ReadAsStream();
-            using var fstream = File.OpenWrite(filePath);
-            await stream.CopyToAsync(fstream);
+            await DownloadImage(id, filePath);
         }
         catch (Exception e)
         {
@@ -70,18 +47,24 @@ public class TileFetcher
             throw;
         }
 
-        return LoadFile(id, filePath);
+        return filePath;
     }
 
-    private BitmapImage LoadFile(TileId id, string path)
+    private async Task DownloadImage(TileId id, string filePath)
     {
-        Uri uri = new(path);
-        BitmapImage newImage = new(uri)
-        {
-            CacheOption = BitmapCacheOption.OnLoad,
-        };
-        tiles[id] = newImage;
-        return newImage;
+        var reqPath = $"{MapsPath}/{id.Z}/{id.X}/{id.Y}";
+        QueryString reqQuery = QueryString.Empty
+            .Add("key", Key)
+            .Add("session", Session)
+            .Add("orientation", "0");
+        Uri reqUri = new(reqPath + reqQuery);
+        HttpClient client = new();
+        var response = await client.GetAsync(reqUri);
+        response.EnsureSuccessStatusCode();
+
+        var stream = response.Content.ReadAsStream();
+        using FileStream fstream = File.OpenWrite(filePath);
+        await stream.CopyToAsync(fstream);
     }
 
     private string CachePath(TileId id)
