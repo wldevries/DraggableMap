@@ -10,6 +10,42 @@
     Height="450"
     mc:Ignorable="d">
     <Grid>
-        <Canvas x:Name="TileCanvas" Background="#F2F0E7" SnapsToDevicePixels="True" />
+        <Canvas
+            x:Name="TileCanvas"
+            Background="#F2F0E7"
+            SnapsToDevicePixels="True" />
+
+        <ItemsControl x:Name="PinsItemsControl">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate x:Name="ElementCanvase">
+                    <Canvas IsManipulationEnabled="False" />
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <local:MapPinFull
+                        Width="40"
+                        Height="40"
+                        Fill="Blue"
+                        Stroke="White"
+                        ToolTip="{Binding Name}"
+                        ToolTipService.Placement="Top">
+                        <local:MapPinFull.RenderTransform>
+                            <MatrixTransform Matrix="{Binding Transformation}" />
+                        </local:MapPinFull.RenderTransform>
+                    </local:MapPinFull>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+            <ItemsControl.ItemContainerStyle>
+                <Style TargetType="{x:Type ContentPresenter}">
+                    <Style.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter Property="Panel.ZIndex" Value="9" />
+                        </Trigger>
+                    </Style.Triggers>
+                </Style>
+            </ItemsControl.ItemContainerStyle>
+        </ItemsControl>
+
     </Grid>
 </Window>

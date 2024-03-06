@@ -1,4 +1,5 @@
-﻿using System.Windows;
+﻿using System.Collections.ObjectModel;
+using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 
@@ -22,10 +23,13 @@ public partial class MainWindow : Window
     private Point mousePosition = new();
     private TileFetcher TileFetcher = new();
     private bool isUpdating = false;
+    private ObservableCollection<PinViewModel> pins = new();
 
     public MainWindow()
     {
         InitializeComponent();
+
+        PinViewModel.Load();
 
         this.Loaded += (_, _) => this.UpdateCanvas();
         this.SizeChanged += (_, _) => this.UpdateCanvas();
@@ -200,6 +204,25 @@ public partial class MainWindow : Window
         foreach (var tile in tiles)
         {
             this.TileCanvas.Children.Remove(tile);
+        }
+
+        if (this.pins.Count == 0 && PinViewModel.DTOs.Count > 0)
+        {
+            foreach (var pinDto in PinViewModel.DTOs.Where(d => d.lng != null && d.lat != null))
+            {
+                PinViewModel vm = new(pinDto);
+                this.pins.Add(vm);
+            }
+            this.PinsItemsControl.ItemsSource = this.pins;
+        }
+
+        foreach (var pin in this.pins)
+        {
+            var tl = GeoMath.GlobalPixelToPosition(this.TopLeft.ToVector2(), this.ZoomLevel, TileFetcher.TileSize);
+            var br = GeoMath.GlobalPixelToPosition(this.BottomRight.ToVector2(), this.ZoomLevel, TileFetcher.TileSize);
+
+            GeoRectangle bounds = GeoRectangle.From([tl, br])!;
+            pin.Update(bounds, new(this.TileCanvas.ActualWidth, this.TileCanvas.ActualHeight));
         }
 
         this.isUpdating = false;
