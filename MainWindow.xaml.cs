@@ -15,10 +15,10 @@ public partial class MainWindow : Window
     private const int MaxZoom = 14;
 
     public static readonly DependencyProperty TopLeftProperty =
-        DependencyProperty.Register("TopLeft", typeof(Point), typeof(MainWindow), new PropertyMetadata(new Point(0, 0), TopLeftChanged));
+        DependencyProperty.Register("TopLeft", typeof(Point), typeof(MainWindow), new PropertyMetadata(new Point(3834, 2563), TopLeftChanged));
 
     public static readonly DependencyProperty ZoomLevelProperty =
-        DependencyProperty.Register("ZoomLevel", typeof(int), typeof(MainWindow), new PropertyMetadata(3));
+        DependencyProperty.Register("ZoomLevel", typeof(int), typeof(MainWindow), new PropertyMetadata(5));
 
     private bool isPanning = false;
     private Point mousePosition = new();
