@@ -2,6 +2,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
 using System.Windows.Media.Imaging;
 
 namespace DraggableMap;
@@ -20,17 +21,35 @@ public partial class MainWindow : Window
     public static readonly DependencyProperty ZoomLevelProperty =
         DependencyProperty.Register("ZoomLevel", typeof(int), typeof(MainWindow), new PropertyMetadata(5));
 
+    public static readonly DependencyProperty ShowTilesProperty =
+        DependencyProperty.Register("ShowTiles", typeof(bool), typeof(MainWindow), new PropertyMetadata(true));
+
+    public static readonly DependencyProperty ShowPinsProperty =
+        DependencyProperty.Register("ShowPins", typeof(bool), typeof(MainWindow), new PropertyMetadata(true));
+
+    public static readonly DependencyProperty ShowGeoJsonProperty =
+        DependencyProperty.Register("ShowGeoJson", typeof(bool), typeof(MainWindow), new PropertyMetadata(true));
+
     private bool isPanning = false;
     private Point mousePosition = new();
     private TileFetcher TileFetcher = new();
     private bool isUpdating = false;
     private ObservableCollection<PinViewModel> pins = new();
+    private ObservableCollection<GeoJsonOverlayViewModel> overlays = new();
 
     public MainWindow()
     {
         InitializeComponent();
 
         PinViewModel.Load();
+
+        var overlaysDirectory = System.IO.Path.Combine(AppContext.BaseDirectory, "GeoJson");
+        foreach (var overlay in GeoJsonOverlayLoader.LoadFromDirectory(overlaysDirectory))
+        {
+            this.overlays.Add(overlay);
+        }
+        this.OverlaysItemsControl.ItemsSource = this.overlays;
+        this.OverlayFiltersItemsControl.ItemsSource = this.overlays;
 
         this.Loaded += (_, _) => this.UpdateCanvas();
         this.SizeChanged += (_, _) => this.UpdateCanvas();
@@ -129,6 +148,11 @@ public partial class MainWindow : Window
 
     private void MainWindow_MouseDown(object sender, MouseButtonEventArgs e)
     {
+        if (e.ChangedButton != MouseButton.Left || this.IsInsideDisplayPanel(e.OriginalSource as DependencyObject))
+        {
+            return;
+        }
+
         Mouse.Capture(this, CaptureMode.SubTree);
         this.Cursor = Cursors.Hand;
         isPanning = true;
@@ -145,6 +169,24 @@ public partial class MainWindow : Window
     {
         get { return (int)GetValue(ZoomLevelProperty); }
         set { SetValue(ZoomLevelProperty, value); }
+    }
+
+    public bool ShowTiles
+    {
+        get { return (bool)GetValue(ShowTilesProperty); }
+        set { SetValue(ShowTilesProperty, value); }
+    }
+
+    public bool ShowPins
+    {
+        get { return (bool)GetValue(ShowPinsProperty); }
+        set { SetValue(ShowPinsProperty, value); }
+    }
+
+    public bool ShowGeoJson
+    {
+        get { return (bool)GetValue(ShowGeoJsonProperty); }
+        set { SetValue(ShowGeoJsonProperty, value); }
     }
 
     private Point BottomRight => this.TopLeft + new Vector(this.TileCanvas.ActualWidth, this.TileCanvas.ActualHeight);
@@ -218,39 +260,48 @@ public partial class MainWindow : Window
             this.PinsItemsControl.ItemsSource = this.pins;
         }
 
+        var tl = GeoMath.GlobalPixelToPosition(
+            this.TopLeft.ToVector2(),
+            this.ZoomLevel,
+            TileFetcher.TileSize);
+        var br = GeoMath.GlobalPixelToPosition(
+            this.BottomRight.ToVector2(),
+            this.ZoomLevel,
+            TileFetcher.TileSize);
+
+        GeoRectangle bounds = GeoRectangle.From([tl, br])!;
+        Size viewportSize = new(this.TileCanvas.ActualWidth, this.TileCanvas.ActualHeight);
+        Vector offset = new();
+
+        if (this.TopLeft.X < 0)
+        {
+            offset.X = -this.TopLeft.X;
+            viewportSize.Width += this.TopLeft.X;
+        }
+        if (this.TopLeft.Y < 0)
+        {
+            offset.Y = -this.TopLeft.Y;
+            viewportSize.Height += this.TopLeft.Y;
+        }
+        if (this.BottomRight.X > worldSize)
+        {
+            viewportSize.Width -= (this.BottomRight.X - worldSize);
+        }
+        if (this.BottomRight.Y > worldSize)
+        {
+            viewportSize.Height -= (this.BottomRight.Y - worldSize);
+        }
+
+        var pixelOffset = offset.ToVector2();
+
+        foreach (var overlay in this.overlays)
+        {
+            overlay.Update(bounds, viewportSize, pixelOffset);
+        }
+
         foreach (var pin in this.pins)
         {
-            var tl = GeoMath.GlobalPixelToPosition(
-                this.TopLeft.ToVector2(),
-                this.ZoomLevel,
-                TileFetcher.TileSize);
-            var br = GeoMath.GlobalPixelToPosition(
-                this.BottomRight.ToVector2(),
-                this.ZoomLevel,
-                TileFetcher.TileSize);
-
-            GeoRectangle bounds = GeoRectangle.From([tl, br])!;
-            Size mapSize = new(this.TileCanvas.ActualWidth, this.TileCanvas.ActualHeight);
-            Vector offset = new();
-            if (this.TopLeft.X < 0)
-            {
-                offset.X = (float)-this.TopLeft.X;
-                mapSize.Width += this.TopLeft.X;
-            }
-            if (this.TopLeft.Y < 0)
-            {
-                offset.Y = (float)-this.TopLeft.Y;
-                mapSize.Height += this.TopLeft.Y;
-            }
-            if (this.BottomRight.X > worldSize)
-            {
-                mapSize.Width -= (this.BottomRight.X - worldSize);
-            }
-            if (this.BottomRight.Y > worldSize)
-            {
-                mapSize.Height -= (this.BottomRight.Y - worldSize);
-            }
-            pin.Update(bounds, mapSize, offset.ToVector2());
+            pin.Update(bounds, viewportSize, pixelOffset);
         }
 
         this.isUpdating = false;
@@ -294,6 +345,21 @@ public partial class MainWindow : Window
             Canvas.SetLeft(tile, tile.Id.X * TileFetcher.TileSize - TopLeft.X);
             Canvas.SetTop(tile, tile.Id.Y * TileFetcher.TileSize - TopLeft.Y);
         }
+    }
+
+    private bool IsInsideDisplayPanel(DependencyObject? source)
+    {
+        while (source != null)
+        {
+            if (ReferenceEquals(source, this.DisplayPanel))
+            {
+                return true;
+            }
+
+            source = VisualTreeHelper.GetParent(source);
+        }
+
+        return false;
     }
 
     private readonly Dictionary<TileId, BitmapImage> tiles = [];

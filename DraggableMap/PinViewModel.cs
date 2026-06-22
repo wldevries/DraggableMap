@@ -1,4 +1,5 @@
 ﻿using ReactiveUI;
+using System.IO;
 using System.Numerics;
 using System.Text.Json;
 using System.Windows;
@@ -49,8 +50,15 @@ public class PinViewModel : ReactiveObject
 
     public static void Load()
     {
-        var json = System.IO.File.ReadAllText("pins.json");
-        DTOs = JsonSerializer.Deserialize<IReadOnlyCollection<PinDto>>(json) ?? [];
+        try
+        {
+            var json = System.IO.File.ReadAllText("pins.json");
+            DTOs = JsonSerializer.Deserialize<IReadOnlyCollection<PinDto>>(json) ?? [];
+        }
+        catch (IOException)
+        {
+            DTOs = [];
+        }
     }
 
 }

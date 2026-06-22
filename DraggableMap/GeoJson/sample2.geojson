@@ -1,0 +1,16 @@
+{
+  "type": "Feature",
+  "geometry": {
+    "type": "Polygon",
+    "coordinates": [[
+      [5.0, 52.35],
+      [5.1, 52.35],
+      [5.1, 52.45],
+      [5.0, 52.45],
+      [5.0, 52.35]
+    ]]
+  },
+  "properties": {
+    "name": "Sample Area 2"
+  }
+}
